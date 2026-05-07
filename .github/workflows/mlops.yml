@@ -141,5 +141,6 @@ jobs:
           script: |
             sudo systemctl restart mlops-serve
             sleep 5
+            sudo systemctl is-active mlops-serve
             curl -sf http://localhost:8000/health
             echo "Health check passed."
