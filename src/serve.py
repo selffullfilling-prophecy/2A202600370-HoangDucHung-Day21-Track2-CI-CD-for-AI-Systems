@@ -3,12 +3,29 @@ from pydantic import BaseModel
 from google.cloud import storage
 import joblib
 import os
+import pandas as pd
+from pathlib import Path
 
-app = FastAPI()
+app = FastAPI(title="Wine Quality Inference API")
 
-GCS_BUCKET = os.environ["GCS_BUCKET"]
+GCS_BUCKET = os.environ.get("GCS_BUCKET")
 GCS_MODEL_KEY = "models/latest/model.pkl"
 MODEL_PATH = os.path.expanduser("~/models/model.pkl")
+LOCAL_MODEL_PATH = Path(__file__).resolve().parents[1] / "models" / "model.pkl"
+FEATURE_NAMES = [
+    "fixed_acidity",
+    "volatile_acidity",
+    "citric_acid",
+    "residual_sugar",
+    "chlorides",
+    "free_sulfur_dioxide",
+    "total_sulfur_dioxide",
+    "density",
+    "pH",
+    "sulphates",
+    "alcohol",
+    "wine_type",
+]
 
 
 def download_model():
@@ -18,24 +35,31 @@ def download_model():
     Ham nay duoc goi mot lan khi module duoc import. Su dung
     GOOGLE_APPLICATION_CREDENTIALS de xac thuc (duoc dat trong systemd service).
     """
-    # TODO 1: Tao storage.Client()
-    # client = storage.Client()
+    if not GCS_BUCKET:
+        if LOCAL_MODEL_PATH.exists():
+            return str(LOCAL_MODEL_PATH)
+        raise RuntimeError(
+            "GCS_BUCKET chua duoc dat va khong tim thay model cuc bo tai "
+            f"{LOCAL_MODEL_PATH}"
+        )
 
-    # TODO 2: Lay bucket va blob tuong ung
-    # bucket = client.bucket(GCS_BUCKET)
-    # blob   = bucket.blob(GCS_MODEL_KEY)
+    model_path = Path(MODEL_PATH)
+    model_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # TODO 3: Tai file model xuong may
-    # blob.download_to_filename(MODEL_PATH)
+    client = storage.Client()
 
-    # TODO 4: In thong bao thanh cong
-    # print("Model da duoc tai xuong tu GCS.")
+    bucket = client.bucket(GCS_BUCKET)
+    blob   = bucket.blob(GCS_MODEL_KEY)
 
-    pass  # xoa dong nay sau khi hoan thanh tat ca TODO ben tren
+    blob.download_to_filename(MODEL_PATH)
+
+    print("Model da duoc tai xuong tu GCS.")
+    return MODEL_PATH
 
 
-download_model()
-model = joblib.load(MODEL_PATH)
+
+model = joblib.load(download_model())
+MODEL_FEATURE_NAMES = list(getattr(model, "feature_names_in_", FEATURE_NAMES))
 
 
 class PredictRequest(BaseModel):
@@ -50,8 +74,7 @@ def health():
 
     Tra ve: {"status": "ok"}
     """
-    # TODO 5: Tra ve dict {"status": "ok"}
-    pass  # xoa dong nay sau khi hoan thanh
+    return {"status": "ok"}
 
 
 @app.post("/predict")
@@ -67,17 +90,24 @@ def predict(req: PredictRequest):
         chlorides, free_sulfur_dioxide, total_sulfur_dioxide, density,
         pH, sulphates, alcohol, wine_type
     """
-    # TODO 6: Kiem tra so luong dac trung.
-    # Neu len(req.features) != 12, raise HTTPException(status_code=400, ...)
+    if len(req.features) != 12:
+        raise HTTPException(
+            status_code=400,
+            detail="Expected 12 features (wine quality)",
+        )
 
-    # TODO 7: Goi model.predict([req.features]) de lay ket qua du doan.
-    # pred = model.predict(...)
+    features = pd.DataFrame([req.features], columns=MODEL_FEATURE_NAMES)
+    prediction = int(model.predict(features)[0])
+    labels = {
+        0: "thap",
+        1: "trung_binh",
+        2: "cao",
+    }
 
-    # TODO 8: Tra ve dict chua "prediction" (int) va "label" (string).
-    # Nhan tuong ung: 0 -> "thap", 1 -> "trung_binh", 2 -> "cao"
-    # return {"prediction": ..., "label": ...}
-
-    pass  # xoa dong nay sau khi hoan thanh tat ca TODO ben tren
+    return {
+        "prediction": prediction,
+        "label": labels.get(prediction, "unknown"),
+    }
 
 
 if __name__ == "__main__":
