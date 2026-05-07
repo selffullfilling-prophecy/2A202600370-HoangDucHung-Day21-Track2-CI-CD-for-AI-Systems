@@ -1,5 +1,5 @@
 # Sieu tham so cho mo hinh RandomForestClassifier
 # Thay doi cac gia tri nay giua cac lan chay de thi nghiem (Buoc 1)
-n_estimators: 100
-max_depth: 5
-min_samples_split: 2
+n_estimators: 800 # tạo 800 cây quyết định trong rừng
+max_depth: null # giới hạn độ sâu tối đa của mỗi cây quyết định
+min_samples_split: 2 # số lượng mẫu tối thiểu cần thiết để chia một nút
