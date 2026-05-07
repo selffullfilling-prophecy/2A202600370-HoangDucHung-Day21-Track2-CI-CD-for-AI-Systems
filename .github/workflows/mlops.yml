@@ -60,9 +60,8 @@ jobs:
 
       - name: Authenticate to Cloud Storage
         run: |
-          cat > /tmp/sa-key.json <<'EOF'
-          ${{ secrets.CLOUD_CREDENTIALS }}
-          EOF
+          printf '%s' '${{ secrets.CLOUD_CREDENTIALS }}' > /tmp/sa-key.json
+          python -m json.tool /tmp/sa-key.json > /dev/null
           echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa-key.json" >> $GITHUB_ENV
           dvc remote modify gcsremote credentialpath /tmp/sa-key.json --local
 
